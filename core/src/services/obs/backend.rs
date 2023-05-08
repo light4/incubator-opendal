@@ -233,6 +233,8 @@ impl Builder for ObsBuilder {
             let host = uri.host().unwrap_or_default().to_string();
             if host.starts_with("obs.") && host.ends_with(".myhuaweicloud.com") {
                 (format!("{bucket}.{host}"), true)
+            } else if host.starts_with("obs.") && host.ends_with(".g42cloud.com") {
+                (format!("{bucket}.{host}"), true)
             } else {
                 (host, false)
             }
