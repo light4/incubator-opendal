@@ -39,8 +39,13 @@ use crate::*;
 ///
 /// This service can be used to:
 ///
+/// - [x] stat
 /// - [x] read
 /// - [ ] ~~write~~
+/// - [ ] ~~create_dir~~
+/// - [ ] ~~delete~~
+/// - [ ] ~~copy~~
+/// - [ ] ~~rename~~
 /// - [x] list
 /// - [ ] ~~scan~~
 /// - [ ] presign
@@ -212,6 +217,7 @@ impl Accessor for IpfsBackend {
     type BlockingReader = ();
     type Writer = ();
     type BlockingWriter = ();
+    type Appender = ();
     type Pager = DirStream;
     type BlockingPager = ();
 
@@ -220,12 +226,15 @@ impl Accessor for IpfsBackend {
         ma.set_scheme(Scheme::Ipfs)
             .set_root(&self.root)
             .set_capability(Capability {
+                stat: true,
+
                 read: true,
                 read_can_next: true,
                 read_with_range: true,
-                list: true,
 
+                list: true,
                 list_with_delimiter_slash: true,
+
                 ..Default::default()
             });
 

@@ -30,11 +30,7 @@ pub fn to_flat_pager<A: Accessor, P>(acc: A, path: &str, size: usize) -> ToFlatP
     {
         let meta = acc.info();
         debug_assert!(
-            !meta.capability().scan,
-            "service already supports scan, call to_flat_pager must be a mistake"
-        );
-        debug_assert!(
-            meta.capability().list,
+            meta.capability().list_with_delimiter_slash,
             "service doesn't support list hierarchy, it must be a bug"
         );
     }
@@ -253,12 +249,14 @@ mod tests {
         type BlockingReader = ();
         type Writer = ();
         type BlockingWriter = ();
+        type Appender = ();
         type Pager = ();
         type BlockingPager = MockPager;
 
         fn info(&self) -> AccessorInfo {
             let mut am = AccessorInfo::default();
             am.capability_mut().list = true;
+            am.capability_mut().list_with_delimiter_slash = true;
 
             am
         }
@@ -299,7 +297,7 @@ mod tests {
 
     #[test]
     fn test_blocking_list() -> Result<()> {
-        let _ = env_logger::try_init();
+        let _ = tracing_subscriber::fmt().with_test_writer().try_init();
 
         let acc = MockService::new();
         let mut pager = to_flat_pager(acc, "x/", 10);

@@ -55,8 +55,12 @@ const KNOWN_AZDFS_ENDPOINT_SUFFIX: &[&str] = &[
 ///
 /// This service can be used to:
 ///
+/// - [x] stat
 /// - [x] read
 /// - [x] write
+/// - [x] create_dir
+/// - [x] delete
+/// - [ ] copy
 /// - [x] rename
 /// - [x] list
 /// - [ ] ~~scan~~
@@ -257,6 +261,7 @@ impl Builder for AzdfsBuilder {
                 .or_else(|| infer_storage_name_from_endpoint(endpoint.as_str())),
             account_key: self.account_key.clone(),
             sas_token: None,
+            ..Default::default()
         };
 
         let cred_loader = AzureStorageLoader::new(config_loader);
@@ -300,6 +305,7 @@ impl Accessor for AzdfsBackend {
     type BlockingReader = ();
     type Writer = AzdfsWriter;
     type BlockingWriter = ();
+    type Appender = ();
     type Pager = AzdfsPager;
     type BlockingPager = ();
 
@@ -309,20 +315,27 @@ impl Accessor for AzdfsBackend {
             .set_root(&self.core.root)
             .set_name(&self.core.filesystem)
             .set_capability(Capability {
+                stat: true,
+
                 read: true,
                 read_can_next: true,
                 read_with_range: true,
+
                 write: true,
+                create_dir: true,
+                delete: true,
                 rename: true,
+
                 list: true,
                 list_with_delimiter_slash: true,
+
                 ..Default::default()
             });
 
         am
     }
 
-    async fn create_dir(&self, path: &str, _: OpCreate) -> Result<RpCreate> {
+    async fn create_dir(&self, path: &str, _: OpCreateDir) -> Result<RpCreateDir> {
         let mut req =
             self.core
                 .azdfs_create_request(path, "directory", None, None, AsyncBody::Empty)?;
@@ -336,7 +349,7 @@ impl Accessor for AzdfsBackend {
         match status {
             StatusCode::CREATED | StatusCode::OK => {
                 resp.into_body().consume().await?;
-                Ok(RpCreate::default())
+                Ok(RpCreateDir::default())
             }
             _ => Err(parse_error(resp).await?),
         }

@@ -63,9 +63,13 @@ const DEFAULT_WRITE_MIN_SIZE: usize = 8 * 1024 * 1024;
 ///
 /// This service can be used to:
 ///
+/// - [x] stat
 /// - [x] read
 /// - [x] write
+/// - [x] create_dir
+/// - [x] delete
 /// - [x] copy
+/// - [ ] rename
 /// - [x] list
 /// - [x] scan
 /// - [x] presign
@@ -367,10 +371,12 @@ impl S3Builder {
         self
     }
 
-    /// Region represent the signing region of this endpoint.
+    /// Region represent the signing region of this endpoint. This is required
+    /// if you are using the default AWS S3 endpoint.
     ///
+    /// If using a custom endpoint,
     /// - If region is set, we will take user's input first.
-    /// - If not, we will use `us-east-1` as default.
+    /// - If not, the default `us-east-1` will be used.
     pub fn region(&mut self, region: &str) -> &mut Self {
         if !region.is_empty() {
             self.region = Some(region.to_string())
@@ -947,6 +953,7 @@ impl Accessor for S3Backend {
     type BlockingReader = ();
     type Writer = S3Writer;
     type BlockingWriter = ();
+    type Appender = ();
     type Pager = S3Pager;
     type BlockingPager = ();
 
@@ -972,19 +979,23 @@ impl Accessor for S3Backend {
                 write_with_cache_control: true,
                 write_with_content_type: true,
                 write_without_content_length: true,
+                create_dir: true,
+                delete: true,
+                copy: true,
 
                 list: true,
                 list_with_limit: true,
                 list_with_start_after: true,
-
-                scan: true,
-                copy: true,
-                presign: true,
-                batch: true,
-                batch_max_operations: Some(1000),
-
                 list_without_delimiter: true,
                 list_with_delimiter_slash: true,
+
+                presign: true,
+                presign_stat: true,
+                presign_read: true,
+                presign_write: true,
+
+                batch: true,
+                batch_max_operations: Some(1000),
 
                 ..Default::default()
             });
@@ -992,7 +1003,7 @@ impl Accessor for S3Backend {
         am
     }
 
-    async fn create_dir(&self, path: &str, _: OpCreate) -> Result<RpCreate> {
+    async fn create_dir(&self, path: &str, _: OpCreateDir) -> Result<RpCreateDir> {
         let mut req =
             self.core
                 .s3_put_object_request(path, Some(0), None, None, None, AsyncBody::Empty)?;
@@ -1006,7 +1017,7 @@ impl Accessor for S3Backend {
         match status {
             StatusCode::CREATED | StatusCode::OK => {
                 resp.into_body().consume().await?;
-                Ok(RpCreate::default())
+                Ok(RpCreateDir::default())
             }
             _ => Err(parse_error(resp).await?),
         }
@@ -1214,7 +1225,7 @@ mod tests {
 
     #[test]
     fn test_build_endpoint() {
-        let _ = env_logger::try_init();
+        let _ = tracing_subscriber::fmt().with_test_writer().try_init();
 
         let endpoint_cases = vec![
             Some("s3.amazonaws.com"),

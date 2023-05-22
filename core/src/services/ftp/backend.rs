@@ -51,8 +51,13 @@ use crate::*;
 ///
 /// This service can be used to:
 ///
+/// - [x] stat
 /// - [x] read
 /// - [x] write
+/// - [x] create_dir
+/// - [x] delete
+/// - [ ] copy
+/// - [ ] rename
 /// - [x] list
 /// - [ ] ~~scan~~
 /// - [ ] ~~presign~~
@@ -309,6 +314,7 @@ impl Accessor for FtpBackend {
     type BlockingReader = ();
     type Writer = FtpWriter;
     type BlockingWriter = ();
+    type Appender = ();
     type Pager = FtpPager;
     type BlockingPager = ();
 
@@ -317,18 +323,25 @@ impl Accessor for FtpBackend {
         am.set_scheme(Scheme::Ftp)
             .set_root(&self.root)
             .set_capability(Capability {
+                stat: true,
+
                 read: true,
                 read_with_range: true,
+
                 write: true,
+                delete: true,
+                create_dir: true,
+
                 list: true,
                 list_with_delimiter_slash: true,
+
                 ..Default::default()
             });
 
         am
     }
 
-    async fn create_dir(&self, path: &str, _: OpCreate) -> Result<RpCreate> {
+    async fn create_dir(&self, path: &str, _: OpCreateDir) -> Result<RpCreateDir> {
         let mut ftp_stream = self.ftp_connect(Operation::CreateDir).await?;
 
         let paths: Vec<&str> = path.split_inclusive('/').collect();
@@ -350,7 +363,7 @@ impl Accessor for FtpBackend {
             }
         }
 
-        return Ok(RpCreate::default());
+        return Ok(RpCreateDir::default());
     }
 
     async fn read(&self, path: &str, args: OpRead) -> Result<(RpRead, Self::Reader)> {

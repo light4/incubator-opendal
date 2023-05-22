@@ -16,12 +16,14 @@
 // under the License.
 
 use std::collections::HashMap;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
+use std::fmt::Formatter;
 
 use log::debug;
 
 use super::backend::GdriveBackend;
-use crate::raw::{normalize_root, HttpClient};
+use crate::raw::normalize_root;
+use crate::raw::HttpClient;
 use crate::Scheme;
 use crate::*;
 
@@ -47,7 +49,7 @@ use crate::*;
 /// - `access_token`: set the access_token for google drive api
 /// - `root`: Set the work directory for backend
 ///
-/// You can refer to [`GoogleDriveBuilder`]'s docs for more information
+/// You can refer to [`GdriveBuilder`]'s docs for more information
 ///
 /// # Example
 ///

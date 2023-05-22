@@ -45,8 +45,13 @@ const DEFAULT_REDIS_PORT: u16 = 6379;
 ///
 /// This service can be used to:
 ///
+/// - [x] stat
 /// - [x] read
 /// - [x] write
+/// - [x] create_dir
+/// - [x] delete
+/// - [ ] copy
+/// - [ ] rename
 /// - [ ] ~~list~~
 /// - [ ] scan
 /// - [ ] ~~presign~~

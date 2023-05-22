@@ -22,6 +22,7 @@
 
 use crate::error::opendal_code;
 use crate::types::opendal_bytes;
+use crate::types::opendal_metadata;
 
 /// The Rust-like Result type of opendal C binding, it contains
 /// the data that the read operation returns and a error code
@@ -39,5 +40,14 @@ pub struct opendal_result_read {
 #[repr(C)]
 pub struct opendal_result_is_exist {
     pub is_exist: bool,
+    pub code: opendal_code,
+}
+
+/// The result type for [`opendal_operator_stat()`], the meta contains the metadata
+/// of the path, the code represents whether the stat operation is successful. Note
+/// that the operation could be successful even if the path does not exist.
+#[repr(C)]
+pub struct opendal_result_stat {
+    pub meta: opendal_metadata,
     pub code: opendal_code,
 }

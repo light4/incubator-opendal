@@ -135,6 +135,7 @@ impl<A: Accessor> LayeredAccessor for MinitraceAccessor<A> {
     type BlockingReader = MinitraceWrapper<A::BlockingReader>;
     type Writer = MinitraceWrapper<A::Writer>;
     type BlockingWriter = MinitraceWrapper<A::BlockingWriter>;
+    type Appender = A::Appender;
     type Pager = MinitraceWrapper<A::Pager>;
     type BlockingPager = MinitraceWrapper<A::BlockingPager>;
 
@@ -148,7 +149,7 @@ impl<A: Accessor> LayeredAccessor for MinitraceAccessor<A> {
     }
 
     #[trace("create", enter_on_poll = true)]
-    async fn create_dir(&self, path: &str, args: OpCreate) -> Result<RpCreate> {
+    async fn create_dir(&self, path: &str, args: OpCreateDir) -> Result<RpCreateDir> {
         self.inner.create_dir(path, args).await
     }
 
@@ -166,6 +167,10 @@ impl<A: Accessor> LayeredAccessor for MinitraceAccessor<A> {
             .write(path, args)
             .map(|v| v.map(|(rp, r)| (rp, MinitraceWrapper::new(span, r))))
             .await
+    }
+
+    async fn append(&self, path: &str, args: OpAppend) -> Result<(RpAppend, Self::Appender)> {
+        self.inner.append(path, args).await
     }
 
     #[trace("copy", enter_on_poll = true)]
@@ -196,14 +201,6 @@ impl<A: Accessor> LayeredAccessor for MinitraceAccessor<A> {
             .await
     }
 
-    async fn scan(&self, path: &str, args: OpScan) -> Result<(RpScan, Self::Pager)> {
-        let span = Span::enter_with_local_parent("scan");
-        self.inner
-            .scan(path, args)
-            .map(|v| v.map(|(rp, s)| (rp, MinitraceWrapper::new(span, s))))
-            .await
-    }
-
     #[trace("presign", enter_on_poll = true)]
     async fn presign(&self, path: &str, args: OpPresign) -> Result<RpPresign> {
         self.inner.presign(path, args).await
@@ -215,7 +212,7 @@ impl<A: Accessor> LayeredAccessor for MinitraceAccessor<A> {
     }
 
     #[trace("blocking_create")]
-    fn blocking_create_dir(&self, path: &str, args: OpCreate) -> Result<RpCreate> {
+    fn blocking_create_dir(&self, path: &str, args: OpCreateDir) -> Result<RpCreateDir> {
         self.inner.blocking_create_dir(path, args)
     }
 
@@ -262,16 +259,6 @@ impl<A: Accessor> LayeredAccessor for MinitraceAccessor<A> {
     fn blocking_list(&self, path: &str, args: OpList) -> Result<(RpList, Self::BlockingPager)> {
         let span = Span::enter_with_local_parent("blocking_list");
         self.inner.blocking_list(path, args).map(|(rp, it)| {
-            (
-                rp,
-                MinitraceWrapper::new(Span::enter_with_parent("PageOperation", &span), it),
-            )
-        })
-    }
-
-    fn blocking_scan(&self, path: &str, args: OpScan) -> Result<(RpScan, Self::BlockingPager)> {
-        let span = Span::enter_with_local_parent("blocking_scan");
-        self.inner.blocking_scan(path, args).map(|(rp, it)| {
             (
                 rp,
                 MinitraceWrapper::new(Span::enter_with_parent("PageOperation", &span), it),

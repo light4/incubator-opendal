@@ -60,13 +60,16 @@ static ENDPOINT_TEMPLATES: Lazy<HashMap<&'static str, &'static str>> = Lazy::new
 ///
 /// This service can be used to:
 ///
+/// - [x] stat
 /// - [x] read
 /// - [x] write
+/// - [x] create_dir
+/// - [x] delete
 /// - [x] copy
+/// - [x] rename
 /// - [x] list
 /// - [x] scan
 /// - [x] presign
-/// - [x] rename
 /// - [ ] blocking
 ///
 /// # Configuration
@@ -893,6 +896,7 @@ impl Accessor for WasabiBackend {
     type BlockingReader = ();
     type Writer = WasabiWriter;
     type BlockingWriter = ();
+    type Appender = ();
     type Pager = WasabiPager;
     type BlockingPager = ();
 
@@ -911,15 +915,21 @@ impl Accessor for WasabiBackend {
                 read_with_range: true,
 
                 write: true,
-                list: true,
-                scan: true,
+                create_dir: true,
+                delete: true,
                 copy: true,
-                presign: true,
-                batch: true,
                 rename: true,
 
+                list: true,
                 list_without_delimiter: true,
                 list_with_delimiter_slash: true,
+
+                presign: true,
+                presign_stat: true,
+                presign_read: true,
+                presign_write: true,
+
+                batch: true,
 
                 ..Default::default()
             });
@@ -927,7 +937,7 @@ impl Accessor for WasabiBackend {
         am
     }
 
-    async fn create_dir(&self, path: &str, _: OpCreate) -> Result<RpCreate> {
+    async fn create_dir(&self, path: &str, _: OpCreateDir) -> Result<RpCreateDir> {
         let mut req =
             self.core
                 .put_object_request(path, Some(0), None, None, None, AsyncBody::Empty)?;
@@ -941,7 +951,7 @@ impl Accessor for WasabiBackend {
         match status {
             StatusCode::CREATED | StatusCode::OK => {
                 resp.into_body().consume().await?;
-                Ok(RpCreate::default())
+                Ok(RpCreateDir::default())
             }
             _ => Err(parse_error(resp).await?),
         }
@@ -965,6 +975,13 @@ impl Accessor for WasabiBackend {
     }
 
     async fn write(&self, path: &str, args: OpWrite) -> Result<(RpWrite, Self::Writer)> {
+        if args.content_length().is_none() {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "write without content length is not supported",
+            ));
+        }
+
         Ok((
             RpWrite::default(),
             WasabiWriter::new(self.core.clone(), args, path.to_string()),
@@ -994,7 +1011,7 @@ impl Accessor for WasabiBackend {
             return Ok(RpStat::new(Metadata::new(EntryMode::DIR)));
         }
 
-        let resp = self.core.head_object(path, args.if_none_match()).await?;
+        let resp = self.core.head_object(path, &args).await?;
 
         let status = resp.status();
 
@@ -1028,7 +1045,7 @@ impl Accessor for WasabiBackend {
     async fn presign(&self, path: &str, args: OpPresign) -> Result<RpPresign> {
         // We will not send this request out, just for signing.
         let mut req = match args.operation() {
-            PresignOperation::Stat(v) => self.core.head_object_request(path, v.if_none_match())?,
+            PresignOperation::Stat(v) => self.core.head_object_request(path, v)?,
             PresignOperation::Read(v) => self.core.get_object_request(
                 path,
                 v.range(),
@@ -1138,12 +1155,12 @@ mod tests {
 
     #[test]
     fn test_build_endpoint() {
-        let _ = env_logger::try_init();
+        let _ = tracing_subscriber::fmt().with_test_writer().try_init();
 
         let endpoint_cases = vec![
             Some("s3.wasabisys.com"),
             Some("https://s3.wasabisys.com"),
-            Some("https://s3.us-east-2.amazonaws.com"),
+            Some("https://s3.us-east-2.wasabisys.com"),
             None,
         ];
 

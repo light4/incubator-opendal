@@ -56,9 +56,13 @@ const AZBLOB_BATCH_LIMIT: usize = 256;
 ///
 /// This service can be used to:
 ///
+/// - [x] stat
 /// - [x] read
 /// - [x] write
+/// - [x] create_dir
+/// - [x] delete
 /// - [x] copy
+/// - [ ] rename
 /// - [x] list
 /// - [x] scan
 /// - [x] presign
@@ -384,6 +388,7 @@ impl Builder for AzblobBuilder {
                 .or_else(|| infer_storage_name_from_endpoint(endpoint.as_str())),
             account_key: self.account_key.clone(),
             sas_token: self.sas_token.clone(),
+            ..Default::default()
         };
 
         let cred_loader = AzureStorageLoader::new(config_loader);
@@ -445,6 +450,7 @@ impl Accessor for AzblobBackend {
     type BlockingReader = ();
     type Writer = AzblobWriter;
     type BlockingWriter = ();
+    type Appender = ();
     type Pager = AzblobPager;
     type BlockingPager = ();
 
@@ -471,22 +477,28 @@ impl Accessor for AzblobBackend {
 
                 delete: true,
                 create_dir: true,
-                list: true,
-                scan: true,
                 copy: true,
+
+                list: true,
+                list_with_delimiter_slash: true,
+                list_without_delimiter: true,
+
                 presign: self.has_sas_token,
+                presign_stat: self.has_sas_token,
+                presign_read: self.has_sas_token,
+                presign_write: self.has_sas_token,
+
                 batch: true,
                 batch_delete: true,
                 batch_max_operations: Some(AZBLOB_BATCH_LIMIT),
 
-                list_with_delimiter_slash: true,
                 ..Default::default()
             });
 
         am
     }
 
-    async fn create_dir(&self, path: &str, _: OpCreate) -> Result<RpCreate> {
+    async fn create_dir(&self, path: &str, _: OpCreateDir) -> Result<RpCreateDir> {
         let mut req =
             self.core
                 .azblob_put_blob_request(path, Some(0), None, None, AsyncBody::Empty)?;
@@ -500,7 +512,7 @@ impl Accessor for AzblobBackend {
         match status {
             StatusCode::CREATED | StatusCode::OK => {
                 resp.into_body().consume().await?;
-                Ok(RpCreate::default())
+                Ok(RpCreateDir::default())
             }
             _ => Err(parse_error(resp).await?),
         }

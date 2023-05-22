@@ -95,6 +95,8 @@ macro_rules! behavior_tests {
 behavior_tests!(Azblob);
 #[cfg(feature = "services-azdfs")]
 behavior_tests!(Azdfs);
+#[cfg(feature = "services-cos")]
+behavior_tests!(Cos);
 #[cfg(feature = "services-dashmap")]
 behavior_tests!(Dashmap);
 #[cfg(feature = "services-fs")]
@@ -137,7 +139,11 @@ behavior_tests!(Supabase);
 behavior_tests!(Sled);
 #[cfg(feature = "services-vercel-artifacts")]
 behavior_tests!(VercelArtifacts);
+#[cfg(feature = "services-wasabi")]
+behavior_tests!(Wasabi);
 #[cfg(feature = "services-webdav")]
 behavior_tests!(Webdav);
 #[cfg(feature = "services-webhdfs")]
 behavior_tests!(Webhdfs);
+#[cfg(feature = "services-onedrive")]
+behavior_tests!(Onedrive);

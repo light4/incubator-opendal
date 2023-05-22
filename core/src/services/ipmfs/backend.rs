@@ -35,6 +35,23 @@ use crate::raw::*;
 use crate::*;
 
 /// Backend for IPFS service
+///
+/// # Capabilities
+///
+/// This service can be used to:
+///
+/// - [x] stat
+/// - [x] read
+/// - [x] write
+/// - [ ] create_dir
+/// - [x] delete
+/// - [ ] copy
+/// - [ ] rename
+/// - [x] list
+/// - [ ] scan
+/// - [ ] presign
+/// - [ ] blocking
+///
 #[derive(Clone)]
 pub struct IpmfsBackend {
     root: String,
@@ -67,6 +84,7 @@ impl Accessor for IpmfsBackend {
     type BlockingReader = ();
     type Writer = IpmfsWriter;
     type BlockingWriter = ();
+    type Appender = ();
     type Pager = IpmfsPager;
     type BlockingPager = ();
 
@@ -75,20 +93,25 @@ impl Accessor for IpmfsBackend {
         am.set_scheme(Scheme::Ipmfs)
             .set_root(&self.root)
             .set_capability(Capability {
+                stat: true,
+
                 read: true,
                 read_can_next: true,
                 read_with_range: true,
+
                 write: true,
+                delete: true,
 
                 list: true,
                 list_with_delimiter_slash: true,
+
                 ..Default::default()
             });
 
         am
     }
 
-    async fn create_dir(&self, path: &str, _: OpCreate) -> Result<RpCreate> {
+    async fn create_dir(&self, path: &str, _: OpCreateDir) -> Result<RpCreateDir> {
         let resp = self.ipmfs_mkdir(path).await?;
 
         let status = resp.status();
@@ -96,7 +119,7 @@ impl Accessor for IpmfsBackend {
         match status {
             StatusCode::CREATED | StatusCode::OK => {
                 resp.into_body().consume().await?;
-                Ok(RpCreate::default())
+                Ok(RpCreateDir::default())
             }
             _ => Err(parse_error(resp).await?),
         }
